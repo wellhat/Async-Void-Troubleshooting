@@ -4,12 +4,20 @@ For more information read this blog post https://docs.microsoft.com/en-us/archiv
 
 Demonstration of problematic usages of async void: 
 ```
-        void Main()
+        void OnCreate()
         {
                 // Note: problems are occurring because the async/void method is not awaited, so its context is forgotten
                 // Exceptions would normally be added to the returning Task, but async void doesn't return a task, so it throws exceptions on sync context
-                ThrowExceptionAsync_VoidNoAwait();
-                ThrowExceptionAsync_VoidWithAwait();
+                
+                try
+                {
+                        ThrowExceptionAsync_VoidNoAwait();
+                        ThrowExceptionAsync_VoidWithAwait();
+                }
+                catch (Exception)
+                {
+                        // Exceptions **will not** be caught here. They are thrown onto the Sync Context. In Xamarin this usually results in unhandled exceptions.
+                }
         }
 
         private async void ThrowExceptionAsync_VoidWithAwait()
