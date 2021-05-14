@@ -6,7 +6,6 @@ Demonstration of problematic usages of async void:
 ```
         void OnCreate()
         {
-                // Note: problems are occurring because the async/void method is not awaited, so its context is forgotten
                 // Exceptions would normally be added to the returning Task, but async void doesn't return a task, so it throws exceptions on sync context
                 
                 try
@@ -55,7 +54,7 @@ This means that calls to e.g. `async void Service.Track()`, a function that in m
 
 One major use case of `async void` is fire and forget async methods. At first glance they might seem ideal, except you know that if your code could throw exceptions you must suppress them there or crash, as you cannot throw them to the caller. There's a better way: I recommend checking out this blog post regarding this: https://www.meziantou.net/fire-and-forget-a-task-in-dotnet.htm
 
-It gets worse when you call more async void methods from an async void method: try/catch cannot protect you from the handling of exceptions in that method, in which exceptions might not be properly suppressed. It follows that you have to be certain that every async method called is suppressing exceptions in the same way. If you work on a large codebase, it is not usually realistic to be confident of the handling of every method and library you call, so it's better to use fail-safe exception handling with `async Task`.
+It gets worse when you call more async void methods from an async void method: try/catch cannot protect you from the handling of exceptions in that method, in which exceptions might not be properly suppressed. It follows that you have to be certain that every async void you use is suppressing exceptions as well. If you work on a large codebase, it is not usually realistic to be confident of the handling of every method and library you call, so it's better to use fail-safe exception handling with `async Task`.
 
 Most of the time the best solution is clear:
 1. which is to avoid `async void` when it is not strictly necessary (e.g. event handlers)
