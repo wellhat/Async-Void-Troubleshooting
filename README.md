@@ -51,7 +51,7 @@ Demonstration of problematic usages of async void:
         }
 ```
 
-This means that calls to e.g. `void Service.Track()`, an async void method which may also call other async void methods, does not always handle exceptions in the intuitive and predictable way. Issues which arise from this are easy to miss due to not containing correct call stack information (as async void loses access to the upper call stack), and because by wrapping all async/void code in a try/catch we can suppress exceptions altogether, but doing this increases nesting and decreases readability, and does not actually guarantee that exceptions are handled as desired. 
+This means that calls to e.g. `void Service.Track()`, an async void method which may also call other async void methods, does not always handle exceptions in the intuitive and predictable way. Issues which arise from this are easy to miss due to not containing correct call stack information (as async void loses access to the upper call stack), and because by wrapping all async/void code in a try/catch we can suppress exceptions altogether, but doing this increases nesting and decreases readability.
 
 Always await async/void methods when they're being called by your code - it is specifically when an async/void method is being let to run *without* awaiting that there is problematic exception handling occurring. Unfortunately, this invalidates 1 common use case of async/void, fire and forget async methods. Fortunately, there exists better ways for firing and forgetting using Task.Run(), I recommend checking out this blog post regarding this: https://www.meziantou.net/fire-and-forget-a-task-in-dotnet.htm
 
