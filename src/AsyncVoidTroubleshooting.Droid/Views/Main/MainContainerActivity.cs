@@ -6,6 +6,7 @@ using Android.App;
 using Android.Content;
 using Android.OS;
 using Android.Runtime;
+using Android.Util;
 using Android.Views;
 using Android.Widget;
 using AsyncVoidTroubleshooting.Core.ViewModels.Main;
@@ -40,51 +41,31 @@ namespace AsyncVoidTroubleshooting.Droid.Views.Main
                 // For those reasons I discussed above, using async/void is unadvisable except when unavoidable and for event handlers.
                 // In these cases, extra care needs to be taken to make sure that exceptions are suppressed in ALL async/void calls in the stack, or else it may again just be thrown on the Sync Context.
 
-
-
-                // What if you called it without awaiting the resulting Task? Ignoring the obvious issue that OnCreate() will consider executing which may cause race conditions, the calling thread is also unaware of the async method's status.
-                // Exceptions are thrown into the Task which is discarded.
-                // This is better than async/void but may still result in unpredictable exception handling, especially if this pattern is being overused.
+                // What if you called it without awaiting the resulting Task?
+                // OnCreate() will continue to run and could cause a race condition, the calling thread is also unaware of the async method's status which was in the Task.
+                // Exceptions are thrown on the Task when awaited, so you must not discard it if you want to handle exceptions with async Task..
+                // This is better than async/void, but it does not track exceptions in Task:
 
                 // ThrowExceptionAsync_TaskWithAwait();
 
-                // Using await in conjunction with Task irons out these issues:
+                // Using `await Task` is ideal for handling code which could throw exceptions
                 // Exceptions are returned to the caller with the following 2 options:
 
                 // await ThrowExceptionAsync_TaskWithAwait();
                 // await ThrowExceptionAsync_TaskWithoutAwait();
 
-                // You should avoid CPU bound (or otherwise thread-blocking) code at the start of async methods. Until the first `await` is reached, the calling thread will not have access to the task. eg:
-                async Task<bool> BadAsyncFunction()
+                FireAndForgetJob();
+                FireAndForgetJob();
+
+                // For firing and forgetting, you can use the below Task extensions for fire & forget.
+                void FireAndForgetJob()
                 {
-                    Thread.Sleep(2500);
-
-                    // If an exception is thrown before reaching 'await', the method may throw exceptions on the Sync Context and cause crashes as with async/void.
-                    // You should be trying to do Syncronous work in a separate execution context than your Asyncronous work. This will avoid all such issues.
-                    return await Task.FromResult(true).ConfigureAwait(false);
+                    Task.Run(() =>
+                    {
+                            // do work here
+                            LogMessage("fire&forget");
+                    }).Forget();
                 }
-
-                // Instead of the above, consider this pattern which supports fire/forget + async
-                void GoodAsync_SyncWork()
-                {
-                    Thread.Sleep(2500);
-
-                    throw new Exception("GoodAsync_SyncWork");
-                }
-
-                // Try to keep async/void contexts as short lived as possible, ideally they should be only a function which suppresses exceptions and which calls awaits a different function that uses async Task instead.
-                // Use `result = await Task.Run(...)` to perform heavy syncronous work on a bg thread whenever possible and await the result. Task.Run(...) can also be helpful for fire and forget behaviours.
-                async Task<bool> GoodAsync_AsyncWork()
-                {
-                    await Task.Delay(20).ConfigureAwait(false);
-
-                    throw new Exception("GoodAsync_AsyncWork");
-
-                    return await Task.FromResult(true).ConfigureAwait(false);
-                }
-
-                await Task.Run(GoodAsync_SyncWork);
-                bool result = await GoodAsync_AsyncWork();
 
             }
             catch (Exception ex)
@@ -126,7 +107,7 @@ namespace AsyncVoidTroubleshooting.Droid.Views.Main
                 throw;
             }
         }
-        // END PROBLEMATIC USAGES
+        // ^^^ PROBLEMATIC USAGES
 
 
         // Other usages
@@ -165,6 +146,37 @@ namespace AsyncVoidTroubleshooting.Droid.Views.Main
         {
             System.Diagnostics.Debug.WriteLine(ex.Message);
             System.Diagnostics.Debug.WriteLine(ex.StackTrace);
+        }
+    }
+}
+
+public static class TaskExtensions
+{
+    public static void Forget(this Task task)
+    {
+        // note: this code is inspired by a tweet from Ben Adams: https://twitter.com/ben_a_adams/status/1045060828700037125
+        // Only care about tasks that may fault (not completed) or are faulted,
+        // so fast-path for SuccessfullyCompleted and Canceled tasks.
+        if (!task.IsCompleted || task.IsFaulted)
+        {
+            // use "_" (Discard operation) to remove the warning IDE0058: Because this call is not awaited, execution of the current method continues before the call is completed
+            // https://docs.microsoft.com/en-us/dotnet/csharp/discards#a-standalone-discard
+            _ = ForgetAwaited(task);
+        }
+
+        // Allocate the async/await state machine only when needed for performance reason.
+        // More info about the state machine: https://blogs.msdn.microsoft.com/seteplia/2017/11/30/dissecting-the-async-methods-in-c/?WT.mc_id=DT-MVP-5003978
+        async static Task ForgetAwaited(Task task)
+        {
+            try
+            {
+                // No need to resume on the original SynchronizationContext, so use ConfigureAwait(false)
+                await task.ConfigureAwait(false);
+            }
+            catch
+            {
+                // Nothing to do here
+            }
         }
     }
 }
