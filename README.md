@@ -1,7 +1,3 @@
-Test async void troubleshooting by looking at `AsyncVoidTroubleshooting/Async-Void-Troubleshooting/src/AsyncVoidTroubleshooting.Droid/Views/Main/MainContainerActivity.cs` and uncommenting each method call one at a time. 
-
-For more information read this blog post https://docs.microsoft.com/en-us/archive/msdn-magazine/2013/march/async-await-best-practices-in-asynchronous-programming
-
 Demonstration of problematic usages of async void: 
 ```
         void OnCreate()
@@ -64,3 +60,12 @@ Most of the time the best solution is clear:
 5. In the rare cases where you **must** use async void, for example in library `void func()` overrides or in event handlers, be extra careful to suppress and handle exceptions. 
 
 The conclusion I take from this is: `async void` methods are dangerous in that if an unhandled exception occurs in one, it will often be thrown on the Sync Context with unhelpful call stack information, resulting in more app crashes which are difficult to reproduce or resolve. These issues are avoidable: use `async Task` in every possible use case and understand the behaviour of `async void` to prevent further issues in your app.
+
+--
+
+*You can test the behaviour yourself on Xamarin.Android by pulling this solution and opening the .sln file in your .NET IDE.* 
+
+*the relevant code is at `src/AsyncVoidTroubleshooting.Droid/Views/Main/MainContainerActivity.cs`, uncomment each method call one at a time to see the difference in exception handling between the approaches*
+
+For more information read this blog post https://docs.microsoft.com/en-us/archive/msdn-magazine/2013/march/async-await-best-practices-in-asynchronous-programming
+
