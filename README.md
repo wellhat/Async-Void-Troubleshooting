@@ -46,11 +46,11 @@ Demonstration of problematic usages of async void:
         }
 ```
 
-This means that calls to e.g. `async void Service.Track()`, a function that in my example also calls more async void methods, will result in unpredictable exception handling which can easily be missed. The call stack information on the Exception is often incomplete or unhelpful. Because they throw exceptions directly on the Sync Context instead of the caller, we usually wrap all the code in `async void` in try/catch blocks, an approach which comes with several its own drawbacks.
+Suppose that calls to a made up method e.g. `async void Service.Track()`, a method which also calls more async void methods: exceptions could be raised and will be handled in unpredictable ways as we'll see here. Another problem, the call stack information on the Exception is often incomplete or unhelpful. Because `async void` methods throw exceptions directly on the Sync Context instead of throwing on the calling thread, we usually wrap all the code in `async void` in try/catch blocks to suppress all exceptions, a scattergun approach that comes with several its own drawbacks.
 
 One major use case of `async void` is fire and forget async methods. At first glance they might seem ideal, except you know that if your code could throw exceptions you must suppress them there or crash, as you cannot throw them to the caller. There's a better way: I recommend checking out this blog post regarding this: https://www.meziantou.net/fire-and-forget-a-task-in-dotnet.htm
 
-It gets worse when you call more async void methods from an async void method: try/catch cannot protect you from the handling of exceptions in that method, in which exceptions might not be properly suppressed. It follows that you have to be certain that every async void you use is suppressing exceptions as well. If you work on a large codebase, it is not usually realistic to be confident of the handling of every method and library you call, so it's better to use fail-safe exception handling with `async Task`.
+It gets worse when you call more async void methods: unlike other method types, `async void` methods must suppress exceptions in the code of all `async` methods which don't return `Task`. Logically, it follows that you need to be certain every `async void` method you call is suppressing exceptions as well. If you work on a large codebase, it is not usually realistic to be confident of the handling of every method and library you call, so it's better to use fail-safe exception handling with `async Task`.
 
 Most of the time the best solution is clear:
 1. which is to avoid `async void` when it is not strictly necessary (e.g. event handlers)
